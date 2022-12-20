@@ -17,6 +17,8 @@ import pandas as pd
 from time import time
 import tracemalloc
 from matplotlib import pyplot as plt
+from bioimageio.core.build_spec import build_model
+from bioimageio.core import load_resource_description
 
 class Training:
 
@@ -189,6 +191,36 @@ class Training:
     plt = self.learning_curve(self.history.history['loss'], self.history.history['val_loss'])
     c = self.occurence(self.reportpath, 'learning_curves')
     plt.savefig(os.path.join(self.reportpath, 'learning_curves_' + c + '.png'), bbox_inches='tight')
+
+  
+  '''
+  Save as a bioimage model zoo
+  '''  
+  def save_bioimageio(self):
+    torchscript = torch.jit.script(self.net)
+    torchscript.save(self.reportpath + 'torch_script_weights.pt')
+    input = np.random.rand(1, 1, 256, 256).astype("float32")
+    np.save(self.reportpath + "/test-input.npy", input)
+    with torch.no_grad(): output = self.net.model(torch.from_numpy(input)).numpy()
+    np.save(self.reportpath + "/test-output.npy", output)
+    build_model(
+      weight_uri = self.reportpath + "/weights.pt",
+      weight_type="torchscript",
+      test_inputs = [self.reportpath + "/test-input.npy"],
+      test_outputs= [self.reportpath + "/test-output.npy"],
+      input_axes = ["bcyx"],
+      output_axes = ["bcyx"],
+      output_path = self.reportpath + "/model.zip",
+      name = "MyFirstModel",
+      description = "a fancy new model",
+      authors=[{"name": "Gizmo"}],
+      license="CC-BY-4.0",
+      documentation="",
+      tags=["nucleus-segmentation"],
+      cite=[{"text": "-", "doi": ""}],
+    )
+
+    load_resource_description(self.reportpath +"/model.zip") 
 
   '''
   Load pre-trained models in the tensorflow or pytorch format
