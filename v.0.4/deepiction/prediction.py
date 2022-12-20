@@ -36,7 +36,7 @@ class Prediction:
             self.model.to(self.device)
         else:
             self.model = load_model(modelfile)
-            self.model.summary()
+            #self.model.summary()
             self.path = path
 
     def subplot(self, axs, x, y, image, title, colorbar=False):
