@@ -5,6 +5,7 @@ import keras
 from keras.models import load_model
 import numpy as np
 import torch.optim as optim
+import torchvision
 from deepiction.pytorch.torch_dataset import TorchDataset
 from deepiction.tensorflow.unet import Unet
 from deepiction.tensorflow.resnet import Resnet
@@ -21,19 +22,27 @@ from matplotlib import pyplot as plt
 class Training:
 
   history = []
-  emissions = []
   device = ''
-  
+
+  #############################################################################################################
+
   def __init__(self, dataset, reportpath):
+    '''
+    Constructor
+    ''' 
     self.dataset = dataset
     self.reportpath = reportpath
     if not(os.path.exists(self.reportpath)): 
       os.makedirs(self.reportpath)
  
+  #############################################################################################################
+   
   def buildnet(self, netname, noutputs, nchannels, npools, batchnorm, dropout, activation):
+    '''
+    Build a network
+    ''' 
     self.framework = netname[:2]
     print_section('Build network ' + netname + ' on ' + self.framework + ' batchnorm:' + str(batchnorm))
- 
     imageshape = (self.dataset.sources.shape[1], self.dataset.sources.shape[2], self.dataset.sources.shape[3])
     print('Input ', imageshape)
     print('Number of outputs ', noutputs)
@@ -66,12 +75,18 @@ class Training:
       self.train_torch(epochs, batchsize, learningrate, loss, metrics)
     else:
       self.train_tensorflow(epochs, batchsize, learningrate, loss, metrics)
-      
+
+  #############################################################################################################
+
   def train_torch(self, epochs, batchsize, learningrate, loss, metrics):
+    '''
+    Training on Pytorch
+    ''' 
     if loss == 'bce':
       criterion = torch.nn.BCELoss()
     else:
       criterion = torch.nn.MSELoss()
+
     if metrics == 'bce': 
       measure  = torch.nn.BCELoss()
     else:       
@@ -84,10 +99,9 @@ class Training:
     sources = np.transpose(self.dataset.x_val, (0, 3, 1, 2))
     targets = np.transpose(self.dataset.x_val, (0, 3, 1, 2))
     val_dataset = TorchDataset(sources, targets, self.device, transform=None)
-    valDataLoader = DataLoader(val_dataset, batch_size=batchsize, shuffle=True, pin_memory=True)
+    valDataLoader = DataLoader(val_dataset, batch_size=sources.shape[0], shuffle=True, pin_memory=True)
  
     optimizer = optim.Adam(self.net.parameters(), lr=learningrate)
-    lenValDataLoader = len(valDataLoader)
 
     best_loss = float('inf')
     training_loss = np.zeros(epochs)
@@ -114,21 +128,28 @@ class Training:
         if running_loss < best_loss:
             torch.save(self.net, self.reportpath + '/model_best.pt')
             best_loss = running_loss
-        meas = 0.0
-        loss_val = 0
+
+        sum_meas = 0.0
+        sum_loss = 0
         with torch.no_grad():
-            for i, (images, labels) in enumerate(valDataLoader, 0):
-                vals = self.net(images)
-                meas += measure(labels, vals)
-                loss_val = criterion(labels, vals)
-            meas = meas / lenValDataLoader
-            loss_val = loss_val / lenValDataLoader
-            print(f'Validation Epoch {epoch+1}/{epochs} measure: {meas:.7f} loss_val: {loss_val:.7f}')
-        training_loss[epoch] = running_loss
-        val_loss[epoch] = loss_val
-        with open(self.reportpath + '/learning_values.csv', 'a') as f:
-          f.write(str(epoch) + ',' + str(running_loss) + ',' + str(loss_val) + '\n')
-          
+          count = 0
+          for i, (images, labels) in enumerate(valDataLoader, 0):
+            vals = self.net(images)
+            loss += criterion(labels, vals)
+            meas += measure(labels, vals)
+            sum_meas += meas.item()
+            sum_loss += loss.item()
+            count += 1
+          sum_meas = sum_meas / count
+          sum_loss = sum_loss / count
+          print(f'Validation Epoch {epoch+1}/{epochs} measure: {sum_meas:.7f} loss_val: {sum_loss:.7f}')
+          training_loss[epoch] = running_loss
+          val_loss[epoch] = sum_loss
+          with open(self.reportpath + '/learning_values.csv', 'a') as f:
+            f.write(str(epoch) + ',' + str(running_loss) + ',' + str(sum_loss) + '\n')
+    
+    images, labels = next(iter(trainDataLoader))
+
     torch.save(self.net, self.reportpath + '/model_last.pt')
     # Save learning curve
     plt = self.learning_curve(training_loss, val_loss)
@@ -136,7 +157,13 @@ class Training:
     plt.savefig(os.path.join(self.reportpath, 'learning_curves_' + c + '.png'), bbox_inches='tight')
 
     #self.save_bioimageio()
+
+  #############################################################################################################
+
   def train_tensorflow(self, epochs, batchsize, learningrate, loss, metrics):
+    '''
+    Training on TensorFlow
+    '''  
     shuffle = False
     save_epoch = True
     tracemalloc.start()
@@ -190,10 +217,12 @@ class Training:
     c = self.occurence(self.reportpath, 'learning_curves')
     plt.savefig(os.path.join(self.reportpath, 'learning_curves_' + c + '.png'), bbox_inches='tight')
 
-  '''
-  Load pre-trained models in the tensorflow or pytorch format
-  '''  
+  #############################################################################################################
+
   def load_pretrained(self, model_file):
+    '''
+    Load pre-trained models in the tensorflow or pytorch format
+    '''  
     print_section('Pretrained model ' + model_file)
     if os.path.exists(model_file):
         print(f"Load {model_file}")
@@ -216,7 +245,9 @@ class Training:
         if f.startswith(pattern):
           c += 1
     return str(c)
-  
+
+  #############################################################################################################
+
   def learning_curve(self, loss, val_loss):
     epochs = range(1, len(loss) + 1)
     fig, axs = plt.subplots(2, figsize=(16,8))
@@ -227,7 +258,9 @@ class Training:
     axs[1].plot(epochs, val_loss, 'r', label='Validation loss')
     axs[1].set_yscale('log') 
     return plt
-          
+
+  #############################################################################################################
+
   def show_learning_curve(self, loss, val_loss):
     plt = self.learning_curve(loss, val_loss)
     plt.show(block=False)
