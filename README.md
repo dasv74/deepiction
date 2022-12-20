@@ -12,7 +12,7 @@ Practice Convolution Neural Networks (CNN) for basic image processing and image 
 - ```simulation-dmap-256-8-1``` distance map on objects, 256x256
 - ```simulation-object-256-8-2``` 2 classes of objects, pixel classification, 256x256
 - ```degradation-noisy-p50``` natural images, added gaussian noise (50), 384x384
-- ```clothes``` public database, 58 classes, 1 iput channel, 480x800
+- ```ctc-glioblastoma-``` Cell tracking challenge, binary pixel classification, 1 iput channel, 512x512
 
 ### **Installation on Apple M1**
 **1. Xcode tools**
@@ -34,11 +34,10 @@ Practice Convolution Neural Networks (CNN) for basic image processing and image 
 - On a terminal, launch the following commands \
 ```pip install --pre torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cpu```
 - On a terminal, launch the following commands \
-```pip install torchmetrics```
+```pip install torchmetrics``` \
 ```pip install notebook```\
 ```pip install matplotlib```\
 ```pip install scikit-learn```\
-```pip install scikit-image```\
 ```pip install scikit-image```\
 ```pip install opencv-python```\
 ```pip install pandas```
