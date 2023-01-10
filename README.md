@@ -1,4 +1,4 @@
-# Deepiction V.0.4
+# Deepiction V.0.5
 
 Practice Convolution Neural Networks (CNN) for basic image processing and image analyis tasks.
 
